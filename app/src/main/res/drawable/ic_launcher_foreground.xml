@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 文件夹（ZorvAI 圆角白标记语言） -->
+    <path android:pathData="M38,46 h13 l4,7 h20 a3,3 0 0,1 3,3 v22 a3,3 0 0,1 -3,3 H30 a3,3 0 0,1 -3,-3 V49 a3,3 0 0,1 3,-3 z"
+        android:fillColor="#FFFFFFFF" />
+
+    <!-- 标签（强调色，文件签名） -->
+    <path android:pathData="M38,46 h13 l-1,6 h-12 a2,2 0 0,1 -2,-2 v-2 a2,2 0 0,1 2,-2 z"
+        android:fillColor="#F472B6" />
+
+    <!-- 节点（强调色，ZorvAI 签名） -->
+    <path android:pathData="M84,32 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0"
+        android:fillColor="#F472B6" />
+</vector>
