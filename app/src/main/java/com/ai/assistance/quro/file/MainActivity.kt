@@ -1,14 +1,9 @@
 package com.ai.assistance.quro.file
 
-import ai.aidl.aci.core.AidlAciRequest
-import ai.aidl.aci.core.IAidlAciService
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.ServiceConnection
 import android.net.Uri
 import android.os.Bundle
-import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -41,7 +36,6 @@ import androidx.compose.material.icons.filled.InsertDriveFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,7 +43,7 @@ import java.util.Locale
 /**
  * 设备文件管理器 App 主界面（Jetpack Compose）。既是 Zorv AI 的 ACI 受控端（设备文件读写），
  * 也可独立使用：浏览/新建/重命名/删除/移动文件与目录，授权设备存储（SAF）后可读写 Download/DCIM/SD 等。
- * 另含调试操控台（自绑定 ACI Service，手动调能力）。
+ * 调试/操控台已移交控制端：本 App 仅暴露 console_ui / console_action 标准 SDUI 能力，由控制端 AciConsoleScreen 渲染。
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,22 +57,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun FileApp() {
     val context = LocalContext.current
-    var tab by remember { mutableStateOf(0) }
     MaterialTheme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize()) {
-                TabRow(selectedTabIndex = tab) {
-                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("文件") })
-                    Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("操控台") })
-                }
-                Spacer(Modifier.height(8.dp))
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    when (tab) {
-                        0 -> FileScreen(context)
-                        1 -> ConsoleScreen(context)
-                    }
-                }
-            }
+            FileScreen(context)
         }
     }
 }
@@ -311,180 +292,6 @@ fun FileViewer(context: Context, rootId: String, entry: Entry, onBack: () -> Uni
         SelectionContainer(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text(text, fontSize = 13.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface)
         }
-    }
-}
-
-// ───────────────────────── 操控台 Tab ─────────────────────────
-
-private data class CapInfo(val id: String, val description: String)
-
-private val EXAMPLE_PARAMS = mapOf(
-    "file_roots" to """{}""",
-    "file_list" to """{"root":"app","path":""}""",
-    "file_read" to """{"root":"app","path":"<文件id>","encoding":"text"}""",
-    "file_write" to """{"root":"app","parent":"","name":"hello.txt","text":"你好，Zorv"}""",
-    "file_mkdir" to """{"root":"app","parent":"","name":"mydir"}""",
-    "file_rename" to """{"root":"app","path":"<id>","newName":"新名.txt"}""",
-    "file_delete" to """{"root":"app","path":"<id>"}""",
-    "file_move" to """{"root":"app","path":"<id>","newParent":"<目标目录id>"}""",
-    "file_info" to """{"root":"app","path":"<id>"}""",
-    "file_search" to """{"root":"app","path":"","keyword":"report"}"""
-)
-
-private fun parseCap(json: String): CapInfo? = try {
-    val o = JSONObject(json)
-    CapInfo(o.optString("id", ""), o.optString("description", ""))
-} catch (_: Throwable) { null }
-
-private fun buildBundle(json: String): Bundle {
-    val b = Bundle()
-    if (json.isBlank()) return b
-    val o = JSONObject(json)
-    val it = o.keys()
-    while (it.hasNext()) {
-        val k = it.next()
-        when (val v = o.get(k)) {
-            is Boolean -> b.putBoolean(k, v)
-            is Int -> b.putInt(k, v)
-            is Long -> b.putLong(k, v)
-            is Double -> b.putDouble(k, v)
-            is String -> b.putString(k, v)
-            else -> b.putString(k, v.toString())
-        }
-    }
-    return b
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ConsoleScreen(context: Context) {
-    val scope = rememberCoroutineScope()
-    val serviceProxy = remember { mutableStateOf<IAidlAciService?>(null) }
-    val bound = remember { mutableStateOf(false) }
-    val caps = remember { mutableStateOf<List<CapInfo>>(emptyList()) }
-    val selectedCap = remember { mutableStateOf("") }
-    val paramsText = remember { mutableStateOf("{}") }
-    val resultText = remember { mutableStateOf("（选择一个能力并点击「执行调用」）") }
-    val log = remember { mutableStateOf("") }
-    val invoking = remember { mutableStateOf(false) }
-    val expanded = remember { mutableStateOf(false) }
-
-    DisposableEffect(Unit) {
-        val conn = object : ServiceConnection {
-            override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-                val proxy = IAidlAciService.Stub.asInterface(binder)
-                serviceProxy.value = proxy
-                bound.value = true
-                try {
-                    val arr = proxy?.getCapabilities() ?: emptyArray()
-                    caps.value = arr.mapNotNull { parseCap(it) }
-                    if (selectedCap.value.isBlank() && caps.value.isNotEmpty()) selectedCap.value = caps.value.first().id
-                } catch (_: Throwable) { }
-            }
-            override fun onServiceDisconnected(name: ComponentName?) {
-                serviceProxy.value = null
-                bound.value = false
-            }
-        }
-        val intent = Intent("ai.aci.core.ACTION_BIND").setPackage(context.packageName)
-        context.bindService(intent, conn, Context.BIND_AUTO_CREATE)
-        onDispose { try { context.unbindService(conn) } catch (_: Throwable) { } }
-    }
-
-    fun invokeCapability() {
-        val proxy = serviceProxy.value ?: return
-        val cap = selectedCap.value
-        if (cap.isBlank()) return
-        invoking.value = true
-        resultText.value = "调用中…"
-        scope.launch(Dispatchers.IO) {
-            try {
-                val request = AidlAciRequest(cap).apply {
-                    params = buildBundle(paramsText.value)
-                    callerPkg = context.packageName
-                }
-                val resp = proxy.call(request)
-                val ok = resp.isSuccess
-                val sb = StringBuilder()
-                sb.append(if (ok) "✅ 成功" else "❌ 失败 (code=${resp.errorCode}): ${resp.errorMessage}\n")
-                resp.result?.let { r ->
-                    for (key in r.keySet()) {
-                        val v = r.get(key)
-                        val s = if (v is String && v.length > 600) v.take(600) + "\n…(已截断)" else (v?.toString() ?: "null")
-                        sb.append("• $key = $s\n")
-                    }
-                }
-                val text = sb.toString()
-                val ts = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-                withContext(Dispatchers.Main) {
-                    resultText.value = text
-                    log.value = "[$ts] $cap → ${if (ok) "OK" else "FAIL"}\n" + log.value
-                    invoking.value = false
-                }
-            } catch (e: Throwable) {
-                withContext(Dispatchers.Main) {
-                    resultText.value = "调用异常：${e.message}"
-                    invoking.value = false
-                }
-            }
-        }
-    }
-
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-            Column(Modifier.padding(16.dp)) {
-                Text("ACI 受控端状态", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(6.dp))
-                Text("● 服务：${if (bound.value) "已连接 (AIDL 同进程绑定)" else "未连接"}", fontSize = 13.sp, color = if (bound.value) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error)
-                Text("● 双通道：AIDL + LocalSocket（抽象命名空间，端点=包名）", fontSize = 13.sp)
-                Text("● 包名：${context.packageName}", fontSize = 13.sp)
-                Text("● 已注册能力数：${caps.value.size}", fontSize = 13.sp)
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        Text("能力列表", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        caps.value.forEach { c ->
-            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(10.dp)) {
-                Column(Modifier.padding(12.dp)) {
-                    Text(c.id, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
-                    Text(c.description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-        if (caps.value.isEmpty()) Text("（等待服务连接…）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(16.dp))
-        Text("手动调用", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        ExposedDropdownMenuBox(expanded = expanded.value, onExpandedChange = { expanded.value = it }) {
-            TextField(
-                readOnly = true, value = selectedCap.value, onValueChange = {}, label = { Text("选择能力") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded.value) },
-                modifier = Modifier.menuAnchor().fillMaxWidth()
-            )
-            ExposedDropdownMenu(expanded = expanded.value, onDismissRequest = { expanded.value = false }) {
-                caps.value.forEach { c ->
-                    DropdownMenuItem(text = { Text(c.id) }, onClick = { selectedCap.value = c.id; paramsText.value = EXAMPLE_PARAMS[c.id] ?: "{}"; expanded.value = false })
-                }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = paramsText.value, onValueChange = { paramsText.value = it }, label = { Text("参数 JSON") }, modifier = Modifier.fillMaxWidth().heightIn(min = 90.dp), singleLine = false)
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = { invokeCapability() }, enabled = bound.value && !invoking.value, modifier = Modifier.fillMaxWidth()) { Text(if (invoking.value) "调用中…" else "执行调用") }
-        Spacer(Modifier.height(16.dp))
-        Text("返回结果", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-            Text(resultText.value, Modifier.padding(12.dp).verticalScroll(rememberScrollState()), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-        }
-        Spacer(Modifier.height(16.dp))
-        Text("调用日志", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-            Text(if (log.value.isBlank()) "（暂无）" else log.value, Modifier.padding(12.dp), fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.height(16.dp))
     }
 }
 

@@ -5,6 +5,7 @@ import ai.aidl.aci.core.AidlAciRequest
 import ai.aidl.aci.core.AidlAciResponse
 import ai.aidl.aci.core.BaseAidlAciService
 import ai.aidl.aci.core.Capability
+import android.os.Bundle
 import android.util.Base64
 import android.util.Log
 import org.json.JSONArray
@@ -35,6 +36,9 @@ class FileAciService : BaseAidlAciService() {
 
     override fun onCreate() {
         try {
+            // 控制台后端需要 ApplicationContext（FileManager 状态）
+            FileAciConsoleBackend.attachContext(applicationContext)
+            // 关键：super.onCreate() 内部会调用 onCreateCapabilities() 并启动 LocalSocket Server
             super.onCreate()
             Log.i(TAG, "onCreate 完成（AIDL + LocalSocket 双通道已就绪）")
         } catch (e: Throwable) {
@@ -161,6 +165,30 @@ class FileAciService : BaseAidlAciService() {
                 .addResult("summary", "string", "可读摘要")
                 .addFlag(Capability.FLAG_BACKGROUND).addFlag(Capability.FLAG_NO_UI)
         )
+
+        // 11. SDUI 控制台（受控端只暴露快照与动作，由控制端 AciConsoleScreen 纯本地渲染）
+        caps.add(
+            Capability.create(
+                "console_ui",
+                "获取控制台 UI 描述 JSON（组件化，由控制端 AciConsoleScreen 纯本地渲染）。"
+            )
+                .addResult("snapshot", "string", "UI 描述 JSON 字符串（aci-sdui-v1 组件树）")
+                .addResult("title", "string", "控制台标题")
+                .addFlag(Capability.FLAG_BACKGROUND)
+                .addFlag(Capability.FLAG_NO_UI)
+        )
+        caps.add(
+            Capability.create(
+                "console_action",
+                "处理控制台前端（控制端）回传的动作：列出已挂载根/列目录/读文件/搜索/查信息。"
+            )
+                .addParam("action", "string", true, "动作 id（roots/list/read/search/info）")
+                .addParam("payload", "string", false, "动作参数 JSON 字符串（input 回传含 {value,key}）")
+                .addResult("ok", "boolean", "是否成功")
+                .addResult("action", "string", "实际处理的动作")
+                .addFlag(Capability.FLAG_BACKGROUND)
+                .addFlag(Capability.FLAG_NO_UI)
+        )
     }
 
     override fun onCheckPermission(request: AidlAciRequest?, callerPkg: String?): Boolean {
@@ -180,8 +208,36 @@ class FileAciService : BaseAidlAciService() {
             "file_move" -> handleMove(request)
             "file_info" -> handleInfo(request)
             "file_search" -> handleSearch(request)
+            "console_ui" -> handleConsoleUi()
+            "console_action" -> handleConsoleAction(request)
             else -> AidlAciResponse.error(AidlAciError.CAPABILITY_NOT_FOUND, "unknown: ${request.capability}")
         }
+    }
+
+    // ── SDUI 控制台（受控端只下发快照 + 处理动作，由控制端现成 AciConsoleScreen 渲染）──
+
+    /** console_ui：返回后端驱动的 UI 描述 JSON（只读状态，不触存储，可在 Binder 线程直接调用）。 */
+    private fun handleConsoleUi(): AidlAciResponse {
+        val snap = FileAciConsoleBackend.buildUiSnapshot()
+        return AidlAciResponse.success(Bundle())
+            .putResult("snapshot", snap.toString())
+            .putResult("title", snap.optString("title", ""))
+    }
+
+    /** console_action：处理前端回传的动作（后台线程跑，避免阻塞 Binder/LocalSocket 线程）。 */
+    private fun handleConsoleAction(req: AidlAciRequest): AidlAciResponse = runNet {
+        val action = req.params?.getString("action") ?: ""
+        if (action.isEmpty()) {
+            return@runNet AidlAciResponse.error(AidlAciError.BAD_REQUEST, "no action")
+        }
+        val payloadStr = req.params?.getString("payload") ?: ""
+        val payload = if (payloadStr.isNotEmpty()) {
+            try { JSONObject(payloadStr) } catch (_: Throwable) { null }
+        } else null
+        val r = FileAciConsoleBackend.applyAction(action, payload)
+        AidlAciResponse.success(Bundle())
+            .putResult("ok", r.optBoolean("ok", false))
+            .putResult("action", r.optString("action", action))
     }
 
     private fun entryJson(e: Entry): JSONObject = JSONObject().apply {
