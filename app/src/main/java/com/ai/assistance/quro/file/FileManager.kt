@@ -3,33 +3,39 @@ package com.ai.assistance.quro.file
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Environment
 import android.provider.DocumentsContract
 import androidx.core.content.edit
 import java.io.File
+import java.util.zip.ZipInputStream
 
 /**
  * 设备文件管理器引擎（受控端能力底座）。
  *
- * 两套后端并存：
+ * 三套后端并存：
  *  1) LocalBackend —— 以 App 外部文件目录（getExternalFilesDir）为根，java.io.File 直读直写，
  *     无需任何存储权限，适合 AI 管理「工作区文件」。
- *  2) SafBackend —— 用户通过系统 openDocumentTree 授权某棵设备目录树（Download / DCIM / SD 卡…），
- *     经 DocumentsContract 只读/可写访问，是第三方 App 访问设备文件的 Android 正规途径。
+ *  2) StorageBackend —— 以设备主共享存储（Environment.getExternalStorageDirectory()，即
+ *     /storage/emulated/0）为根，依赖 MANAGE_EXTERNAL_STORAGE（Android 11+「管理所有文件」权限）
+ *     才能读写整个设备存储（Download / DCIM / Documents / 及用户自建目录）。这才是真正的
+ *     「设备管理存储权限」，替代原先 SAF 单文件夹授权的受限方案。
+ *  3) SafBackend —— 用户通过系统 openDocumentTree 授权某棵目录树（SD 卡 / 特定文件夹），
+ *     经 DocumentsContract 访问，作为 StorageBackend 之外的补充（如 MAS 不覆盖的可移动介质）。
  *
- * 所有操作以 (rootId, path) 定位：LocalBackend 的 path 是相对根目录的路径；SafBackend 的 path 是
- * DocumentsContract 的 documentId。Entry 同时携带 parentId 便于移动。
+ * 所有操作以 (rootId, path) 定位：Local/Storage 的 path 是相对根目录的路径；SafBackend 的
+ * path 是 DocumentsContract 的 documentId。Entry 同时携带 parentId 便于移动。
  */
 
 data class RootInfo(
     val rootId: String,
     val name: String,
-    val type: String,        // "local" | "saf"
+    val type: String,        // "local" | "storage" | "saf"
     val writable: Boolean
 )
 
 data class Entry(
     val rootId: String,
-    val id: String,          // 后端内部定位符（LocalBackend=相对路径；SafBackend=documentId）
+    val id: String,          // 后端内部定位符（Local/Storage=相对路径；SafBackend=documentId）
     val parentId: String,    // 父目录 id（root 自身的父 = ""）
     val name: String,
     val isDir: Boolean,
@@ -52,7 +58,43 @@ interface Backend {
     fun rename(id: String, newName: String)
     fun delete(id: String)
     fun move(id: String, newParent: String)
+    fun copy(id: String, newParent: String)
+    fun unzip(id: String, destParent: String): String
+    fun sizeOf(id: String): Long
     fun search(parent: String, q: String): List<Entry>
+}
+
+// ── 本地/设备后端共享的 File 工具 ──────────────────────────────
+
+private fun copyFileOrDir(src: File, dst: File) {
+    if (src.isDirectory) {
+        dst.mkdirs()
+        src.listFiles().orEmpty().forEach { copyFileOrDir(it, File(dst, it.name)) }
+    } else {
+        dst.parentFile?.mkdirs()
+        src.inputStream().buffered().use { ins -> dst.outputStream().buffered().use { ins.copyTo(it) } }
+    }
+}
+
+private fun unzipFile(zip: File, destDir: File) {
+    destDir.mkdirs()
+    ZipInputStream(zip.inputStream().buffered()).use { zis ->
+        var entry = zis.nextEntry
+        while (entry != null) {
+            val outFile = File(destDir, entry.name)
+            val cano = outFile.canonicalPath
+            if (!cano.startsWith(destDir.canonicalPath)) {
+                zis.closeEntry(); entry = zis.nextEntry; continue
+            }
+            if (entry.isDirectory) outFile.mkdirs()
+            else {
+                outFile.parentFile?.mkdirs()
+                outFile.outputStream().buffered().use { zis.copyTo(it) }
+            }
+            zis.closeEntry()
+            entry = zis.nextEntry
+        }
+    }
 }
 
 // ── 本地后端（App 外部文件目录为根） ──────────────────────────────
@@ -65,13 +107,150 @@ class LocalBackend(private val ctx: Context) : Backend {
     private val base: File by lazy { ctx.getExternalFilesDir(null) ?: ctx.filesDir }
 
     private fun resolve(id: String): File {
-        if (id.isEmpty()) return base
-        // 防目录穿越
-        val f = File(base, id)
+        val f = if (id.isEmpty()) base else File(base, id)
         val cano = f.canonicalPath
         if (!cano.startsWith(base.canonicalPath)) throw SecurityException("path escape: $id")
         return f
     }
+
+    fun resolveId(id: String): File = resolve(id)
+
+    private fun toEntry(f: File): Entry {
+        val rel = f.relativeToOrNull(base)?.path ?: ""
+        val parentRel = f.parentFile?.relativeToOrNull(base)?.path ?: ""
+        return Entry(
+            rootId = rootId,
+            id = rel,
+            parentId = parentRel,
+            name = f.name,
+            isDir = f.isDirectory,
+            size = if (f.isFile) f.length() else 0L,
+            lastModified = f.lastModified(),
+            mimeType = if (f.isDirectory) "vnd.android.document/directory" else guessMime(f.name)
+        )
+    }
+
+    override fun list(parent: String): List<Entry> =
+        resolve(parent).listFiles().orEmpty().map { toEntry(it) }
+            .sortedWith(compareBy({ !it.isDir }, { it.name.lowercase() }))
+
+    override fun stat(id: String): Entry? {
+        val f = resolve(id)
+        return if (f.exists()) toEntry(f) else null
+    }
+
+    override fun readBytes(id: String): ByteArray {
+        val f = resolve(id)
+        if (!f.isFile) throw IllegalStateException("not a file: $id")
+        return f.readBytes()
+    }
+
+    override fun readText(id: String, maxBytes: Int): String {
+        val f = resolve(id)
+        if (!f.isFile) throw IllegalStateException("not a file: $id")
+        val len = minOf(f.length().toInt(), maxBytes).coerceAtLeast(0)
+        val buf = ByteArray(len)
+        f.inputStream().buffered().use { stream ->
+            var read = 0
+            while (read < len) {
+                val n = stream.read(buf, read, len - read)
+                if (n < 0) break
+                read += n
+            }
+        }
+        return buf.toString(Charsets.UTF_8)
+    }
+
+    override fun write(parent: String, name: String, data: ByteArray): String {
+        val dir = resolve(parent)
+        if (!dir.isDirectory) dir.mkdirs()
+        val f = File(dir, name)
+        f.writeBytes(data)
+        return f.relativeToOrNull(base)?.path ?: name
+    }
+
+    override fun mkdir(parent: String, name: String): String {
+        val dir = resolve(parent)
+        val f = File(dir, name)
+        f.mkdirs()
+        return f.relativeToOrNull(base)?.path ?: name
+    }
+
+    override fun append(parent: String, name: String, data: ByteArray): String {
+        val dir = resolve(parent)
+        if (!dir.isDirectory) dir.mkdirs()
+        val f = File(dir, name)
+        val existing = if (f.exists()) f.readBytes() else ByteArray(0)
+        f.writeBytes(existing + data)
+        return f.relativeToOrNull(base)?.path ?: name
+    }
+
+    override fun rename(id: String, newName: String) {
+        val f = resolve(id)
+        val target = File(f.parentFile ?: base, newName)
+        f.renameTo(target)
+    }
+
+    override fun delete(id: String) {
+        val f = resolve(id)
+        if (f.isDirectory) f.deleteRecursively() else f.delete()
+    }
+
+    override fun move(id: String, newParent: String) {
+        val f = resolve(id)
+        val target = File(resolve(newParent), f.name)
+        f.renameTo(target)
+    }
+
+    override fun copy(id: String, newParent: String) {
+        copyFileOrDir(resolve(id), File(resolve(newParent), resolve(id).name))
+    }
+
+    override fun unzip(id: String, destParent: String): String {
+        val zip = resolve(id)
+        val destDir = File(resolve(destParent), zip.nameWithoutExtension)
+        unzipFile(zip, destDir)
+        return destDir.relativeToOrNull(base)?.path ?: destDir.name
+    }
+
+    override fun sizeOf(id: String): Long {
+        val f = resolve(id)
+        if (!f.isDirectory) return f.length()
+        var total = 0L
+        f.walkTopDown().forEach { if (it.isFile) total += it.length() }
+        return total
+    }
+
+    override fun search(parent: String, q: String): List<Entry> {
+        val root = resolve(parent)
+        if (!root.isDirectory) return emptyList()
+        val out = mutableListOf<Entry>()
+        root.walkTopDown().forEach { f ->
+            if (f.isFile && f.name.lowercase().contains(q.lowercase())) out.add(toEntry(f))
+        }
+        return out.take(200)
+    }
+}
+
+// ── 设备存储后端（MANAGE_EXTERNAL_STORAGE 授权后的主共享存储） ──
+
+class StorageBackend(private val ctx: Context) : Backend {
+    override val rootId = "storage"
+    override val name = "设备存储"
+    override val writable: Boolean
+        get() = Environment.isExternalStorageManager()
+
+    @Suppress("DEPRECATION")
+    private val base: File by lazy { Environment.getExternalStorageDirectory() }
+
+    private fun resolve(id: String): File {
+        val f = if (id.isEmpty()) base else File(base, id)
+        val cano = f.canonicalPath
+        if (!cano.startsWith(base.canonicalPath)) throw SecurityException("path escape: $id")
+        return f
+    }
+
+    fun resolveId(id: String): File = resolve(id)
 
     private fun toEntry(f: File): Entry {
         val rel = f.relativeToOrNull(base)?.path ?: ""
@@ -163,6 +342,25 @@ class LocalBackend(private val ctx: Context) : Backend {
         f.renameTo(target)
     }
 
+    override fun copy(id: String, newParent: String) {
+        copyFileOrDir(resolve(id), File(resolve(newParent), resolve(id).name))
+    }
+
+    override fun unzip(id: String, destParent: String): String {
+        val zip = resolve(id)
+        val destDir = File(resolve(destParent), zip.nameWithoutExtension)
+        unzipFile(zip, destDir)
+        return destDir.relativeToOrNull(base)?.path ?: destDir.name
+    }
+
+    override fun sizeOf(id: String): Long {
+        val f = resolve(id)
+        if (!f.isDirectory) return f.length()
+        var total = 0L
+        f.walkTopDown().forEach { if (it.isFile) total += it.length() }
+        return total
+    }
+
     override fun search(parent: String, q: String): List<Entry> {
         val root = resolve(parent)
         if (!root.isDirectory) return emptyList()
@@ -174,10 +372,10 @@ class LocalBackend(private val ctx: Context) : Backend {
     }
 }
 
-// ── SAF 树后端（用户授权目录） ──────────────────────────────────
+// ── SAF 树后端（用户授权目录 / SD 卡） ──────────────────────────
 
 class SafBackend(private val ctx: Context, override val rootId: String, private val treeUri: Uri) : Backend {
-    override val name: String = "设备存储"
+    override val name: String = "授权目录"
     override val writable: Boolean = true
 
     private val cr get() = ctx.contentResolver
@@ -257,8 +455,7 @@ class SafBackend(private val ctx: Context, override val rootId: String, private 
 
     override fun write(parent: String, name: String, data: ByteArray): String {
         val parentUri = docUri(if (parent.isEmpty()) rootDocId else parent)
-        val mime = guessMime(name)
-        val newUri = DocumentsContract.createDocument(cr, parentUri, mime, name)
+        val newUri = DocumentsContract.createDocument(cr, parentUri, guessMime(name), name)
             ?: throw IllegalStateException("createDocument failed: $name")
         cr.openOutputStream(newUri)?.use { it.write(data) }
         return DocumentsContract.getDocumentId(newUri)
@@ -303,6 +500,65 @@ class SafBackend(private val ctx: Context, override val rootId: String, private 
         )
     }
 
+    private fun copySaf(srcId: String, dstParent: String) {
+        val src = stat(srcId) ?: throw IllegalStateException("not found: $srcId")
+        if (src.isDir) {
+            val newDirId = mkdir(dstParent, src.name)
+            list(srcId).forEach { copySaf(it.id, newDirId) }
+        } else {
+            val data = readBytes(srcId)
+            write(dstParent, src.name, data)
+        }
+    }
+
+    override fun copy(id: String, newParent: String) = copySaf(id, newParent)
+
+    override fun unzip(id: String, destParent: String): String {
+        val data = readBytes(id)
+        val baseName = (stat(id)?.name ?: "archive").substringBeforeLast('.')
+        val rootIdCreated = mkdir(destParent, baseName)
+        ZipInputStream(data.inputStream().buffered()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                val parts = entry.name.split('/').filter { it.isNotBlank() }
+                if (parts.isNotEmpty()) {
+                    var parent = rootIdCreated
+                    for (i in 0 until parts.size - 1) parent = findOrCreateDir(parent, parts[i])
+                    val leaf = parts.last()
+                    if (entry.isDirectory) findOrCreateDir(parent, leaf)
+                    else {
+                        val newUri = DocumentsContract.createDocument(cr, docUri(parent), guessMime(leaf), leaf)
+                            ?: throw IllegalStateException("create failed $leaf")
+                        cr.openOutputStream(newUri)?.use { zis.copyTo(it) }
+                    }
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        }
+        return rootIdCreated
+    }
+
+    private fun findOrCreateDir(parent: String, name: String): String {
+        val existing = list(parent).firstOrNull { it.isDir && it.name == name }
+        return existing?.id ?: mkdir(parent, name)
+    }
+
+    override fun sizeOf(id: String): Long {
+        var total = 0L
+        val stack = mutableListOf(id)
+        val seen = mutableSetOf<String>()
+        while (stack.isNotEmpty()) {
+            val cur = stack.removeAt(stack.size - 1)
+            if (!seen.add(cur)) continue
+            val entries = list(cur)
+            for (e in entries) {
+                if (e.isDir) stack.add(e.id) else total += e.size
+            }
+        }
+        return total
+    }
+
     override fun search(parent: String, q: String): List<Entry> {
         val out = mutableListOf<Entry>()
         val stack = mutableListOf(if (parent.isEmpty()) rootDocId else parent)
@@ -324,6 +580,7 @@ class SafBackend(private val ctx: Context, override val rootId: String, private 
 // ── 管理器（后端注册 + 持久化 + 分发） ──────────────────────────
 
 object FileManager {
+    private const val STORAGE_ROOT_ID = "storage"
     private lateinit var prefs: SharedPreferences
     private val backends = mutableMapOf<String, Backend>()
     private val safUris = mutableMapOf<String, Uri>()   // rootId -> treeUri（用于持久化）
@@ -345,11 +602,33 @@ object FileManager {
                     safUris[rid] = uri
                 }
             } catch (_: Throwable) { }
+            refreshStorageRoot(ctx)
         }
     }
 
+    /** 根据 MANAGE_EXTERNAL_STORAGE 授权状态动态注册/注销「设备存储」根。 */
+    fun refreshStorageRoot(ctx: Context) {
+        synchronized(lock) {
+            if (Environment.isExternalStorageManager()) {
+                if (!backends.containsKey(STORAGE_ROOT_ID)) {
+                    backends[STORAGE_ROOT_ID] = StorageBackend(ctx.applicationContext)
+                }
+            } else {
+                backends.remove(STORAGE_ROOT_ID)
+            }
+        }
+    }
+
+    fun hasStoragePermission(): Boolean = Environment.isExternalStorageManager()
+
     fun roots(): List<RootInfo> = synchronized(lock) {
-        backends.values.map { RootInfo(it.rootId, it.name, if (it is LocalBackend) "local" else "saf", it.writable) }
+        backends.values.map { RootInfo(it.rootId, it.name, typeOf(it), it.writable) }
+    }
+
+    private fun typeOf(b: Backend): String = when (b) {
+        is LocalBackend -> "local"
+        is StorageBackend -> "storage"
+        else -> "saf"
     }
 
     fun addSafRoot(ctx: Context, treeUri: Uri) {
@@ -363,7 +642,7 @@ object FileManager {
     }
 
     fun removeRoot(rootId: String) {
-        if (rootId == "app") return
+        if (rootId == "app" || rootId == STORAGE_ROOT_ID) return
         synchronized(lock) {
             backends.remove(rootId)
             safUris.remove(rootId)
@@ -395,6 +674,9 @@ object FileManager {
     fun rename(rootId: String, id: String, newName: String) = backend(rootId).rename(id, newName)
     fun delete(rootId: String, id: String) = backend(rootId).delete(id)
     fun move(rootId: String, id: String, newParent: String) = backend(rootId).move(id, newParent)
+    fun copy(rootId: String, id: String, newParent: String) = backend(rootId).copy(id, newParent)
+    fun unzip(rootId: String, id: String, destParent: String) = backend(rootId).unzip(id, destParent)
+    fun sizeOf(rootId: String, id: String) = backend(rootId).sizeOf(id)
     fun search(rootId: String, parent: String, q: String) = backend(rootId).search(parent, q)
 }
 

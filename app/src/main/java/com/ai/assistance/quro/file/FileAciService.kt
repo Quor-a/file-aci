@@ -22,8 +22,8 @@ import java.util.concurrent.TimeUnit
  *  - onCreateCapabilities 注册 10 项文件能力；onCall 处理调用；onCheckPermission 做调用方白名单
  *  - 文件 IO 在后台线程执行，用 CountDownLatch 限时（控制端 callTimeoutMs=15s，硬上限留 1s 余量）
  *
- * 文件访问依赖 FileManager（LocalBackend=App 工作区 + SafBackend=用户授权设备目录），无需申请
- * 危险存储权限（Android 11+ 通过 SAF 正规访问设备文件）。
+ * 文件访问依赖 FileManager（LocalBackend=App 工作区 + StorageBackend=MANAGE_EXTERNAL_STORAGE 设备存储
+ * + SafBackend=用户授权目录）。设备存储经「管理所有文件」权限获取，是真正的设备管理存储权限。
  */
 class FileAciService : BaseAidlAciService() {
 
@@ -166,7 +166,30 @@ class FileAciService : BaseAidlAciService() {
                 .addFlag(Capability.FLAG_BACKGROUND).addFlag(Capability.FLAG_NO_UI)
         )
 
-        // 11. SDUI 控制台（受控端只暴露快照与动作，由控制端 AciConsoleScreen 纯本地渲染）
+        // 11. 复制
+        caps.add(
+            Capability.create("file_copy", "复制文件/目录到另一目录（保留原文件）。")
+                .addParam("root", "string", true, "根 id")
+                .addParam("path", "string", true, "条目 id")
+                .addParam("newParent", "string", true, "目标父目录 id（根为 \"\"）")
+                .addResult("root", "string", "根 id")
+                .addResult("summary", "string", "可读摘要")
+                .addFlag(Capability.FLAG_BACKGROUND).addFlag(Capability.FLAG_NO_UI)
+        )
+
+        // 12. 解压
+        caps.add(
+            Capability.create("file_unzip", "解压 .zip 文件到目标目录（生成同名文件夹）。")
+                .addParam("root", "string", true, "根 id")
+                .addParam("path", "string", true, "zip 条目 id")
+                .addParam("destParent", "string", false, "目标父目录 id（根为 \"\"，默认当前目录）")
+                .addResult("root", "string", "根 id")
+                .addResult("path", "string", "解压出的目录 id")
+                .addResult("summary", "string", "可读摘要")
+                .addFlag(Capability.FLAG_BACKGROUND).addFlag(Capability.FLAG_NO_UI)
+        )
+
+        // 13. SDUI 控制台（受控端只暴露快照与动作，由控制端 AciConsoleScreen 纯本地渲染）
         caps.add(
             Capability.create(
                 "console_ui",
@@ -208,6 +231,8 @@ class FileAciService : BaseAidlAciService() {
             "file_move" -> handleMove(request)
             "file_info" -> handleInfo(request)
             "file_search" -> handleSearch(request)
+            "file_copy" -> handleCopy(request)
+            "file_unzip" -> handleUnzip(request)
             "console_ui" -> handleConsoleUi()
             "console_action" -> handleConsoleAction(request)
             else -> AidlAciResponse.error(AidlAciError.CAPABILITY_NOT_FOUND, "unknown: ${request.capability}")
@@ -387,6 +412,24 @@ class FileAciService : BaseAidlAciService() {
             .putResult("results", arr.toString())
             .putResult("count", hits.size.toString())
             .putResult("summary", if (hits.isEmpty()) "未找到包含「$keyword」的文件" else "命中 ${hits.size} 项：\n$sb")
+    }
+
+    private fun handleCopy(req: AidlAciRequest): AidlAciResponse = runNet {
+        val root = req.params?.getString("root") ?: return@runNet AidlAciResponse.error(AidlAciError.BAD_REQUEST, "missing param: root")
+        val path = req.params?.getString("path") ?: return@runNet AidlAciResponse.error(AidlAciError.BAD_REQUEST, "missing param: path")
+        val newParent = req.params?.getString("newParent") ?: ""
+        FileManager.copy(root, path, newParent)
+        AidlAciResponse.success().putResult("root", root)
+            .putResult("summary", "已复制 (id=$path) 到 $newParent")
+    }
+
+    private fun handleUnzip(req: AidlAciRequest): AidlAciResponse = runNet {
+        val root = req.params?.getString("root") ?: return@runNet AidlAciResponse.error(AidlAciError.BAD_REQUEST, "missing param: root")
+        val path = req.params?.getString("path") ?: return@runNet AidlAciResponse.error(AidlAciError.BAD_REQUEST, "missing param: path")
+        val destParent = req.params?.getString("destParent") ?: ""
+        val id = FileManager.unzip(root, path, destParent)
+        AidlAciResponse.success().putResult("root", root).putResult("path", id)
+            .putResult("summary", "已解压到 (id=$id)")
     }
 
     // ── 后台执行 + 限时 ────────────────────────────────────────

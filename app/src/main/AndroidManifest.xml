@@ -13,7 +13,14 @@
     <permission android:name="ai.aci.permission.CALL_DANGEROUS" tools:node="remove" />
     <permission android:name="ai.aci.permission.DISCOVER"      tools:node="remove" />
 
-    <!-- 文件受控端：通过 SAF 访问设备文件（用户授权），无需申请危险存储权限 -->
+    <!-- 文件受控端：设备存储访问 -->
+    <!-- MANAGE_EXTERNAL_STORAGE（Android 11+「管理所有文件」/ 设备管理存储权限）：
+         授予后可经 java.io.File 读写整个主共享存储（Download/DCIM/Documents/用户目录），
+         这才是真正的「设备管理存储权限」，替代 SAF 单文件夹授权的受限方案。 -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <!-- 仍保留 SAF 作为 SD 卡 / 特定文件夹的补充授权入口（无需声明权限） -->
 
     <!-- 仅引用控制端已定义的 ACI 权限（定义权归 ZorvAI） -->
     <uses-permission android:name="ai.aci.permission.CALL" />

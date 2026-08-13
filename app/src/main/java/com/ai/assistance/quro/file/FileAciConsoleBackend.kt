@@ -60,7 +60,7 @@ object FileAciConsoleBackend {
                 .put("text", if (lastMsg.isNotBlank()) "上次操作：\n$lastMsg" else "（暂无操作）")
         )
         components.put(JSONObject().put("type", "listitem").put("text", "受控端包名: com.ai.assistance.quro.file"))
-        components.put(JSONObject().put("type", "listitem").put("text", "访问方式: App 工作区 + SAF 授权设备目录（无需危险存储权限）"))
+        components.put(JSONObject().put("type", "listitem").put("text", "访问方式: App 工作区 + 设备存储(MANAGE_EXTERNAL_STORAGE) + SAF 授权目录"))
 
         return JSONObject()
             .put("title", "FileAci 文件控制台")
@@ -143,6 +143,28 @@ object FileAciConsoleBackend {
                         else "${e.name} | ${if (e.isDir) "目录" else "文件"} | ${fmtSize(e.size)} | ${fmtTime(e.lastModified)} | ${e.mimeType}"
                         lastMsg
                     } catch (ex: Throwable) { "查询信息失败：${ex.message}" }
+                }
+            }
+            "copy" -> {
+                val root = p.optString("root", p.optString("value", "")).trim()
+                val path = p.optString("path", "").trim()
+                val newParent = p.optString("newParent", p.optString("parent", "")).trim()
+                if (root.isEmpty() || path.isEmpty()) "请输入 root 与条目 id"
+                else {
+                    try { FileManager.copy(root, path, newParent); lastMsg = "已复制 (id=$path) 到 $newParent" }
+                    catch (e: Throwable) { lastMsg = "复制失败：${e.message}" }
+                    lastMsg
+                }
+            }
+            "unzip" -> {
+                val root = p.optString("root", p.optString("value", "")).trim()
+                val path = p.optString("path", "").trim()
+                val destParent = p.optString("destParent", p.optString("parent", "")).trim()
+                if (root.isEmpty() || path.isEmpty()) "请输入 root 与 zip id"
+                else {
+                    try { val id = FileManager.unzip(root, path, destParent); lastMsg = "已解压到 (id=$id)" }
+                    catch (e: Throwable) { lastMsg = "解压失败：${e.message}" }
+                    lastMsg
                 }
             }
             else -> "未知 action: $action"
