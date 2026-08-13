@@ -3,14 +3,18 @@ package com.ai.assistance.quro.file
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import java.io.File
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -64,6 +68,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         FileManager.init(applicationContext)
         FileManager.refreshStorageRoot(applicationContext)
+        installCrashLogger(applicationContext)
+        enableEdgeToEdge()
         setContent { FileApp() }
     }
 }
@@ -152,12 +158,6 @@ fun FileScreen(context: Context) {
         refreshRoots()
         loadCurrent()
     }
-    fun ensureStorage() {
-        if (FileManager.hasStoragePermission()) { FileManager.refreshStorageRoot(context); refreshRoots(); loadCurrent(); return }
-        val uri = Uri.parse("package:${context.packageName}")
-        grantLauncher.launch(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION, uri))
-    }
-
     // SAF 添加 SD 卡 / 特定文件夹
     val treeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         if (uri != null) {
@@ -170,6 +170,29 @@ fun FileScreen(context: Context) {
                 FileManager.addSafRoot(context, uri)
                 withContext(Dispatchers.Main) { refreshRoots(); navStack.value = listOf(PathNode("", "根")); loadCurrent() }
             }
+        }
+    }
+
+    // 授权设备存储（跳系统设置授予「管理所有文件」）
+    fun ensureStorage() {
+        if (FileManager.hasStoragePermission()) { FileManager.refreshStorageRoot(context); refreshRoots(); loadCurrent(); return }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            // Android < 11 没有「管理所有文件」权限，降级到 SAF 授权
+            treeLauncher.launch(null)
+            return
+        }
+        try {
+            val uri = Uri.parse("package:${context.packageName}")
+            val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION, uri)
+            if (context.packageManager.resolveActivity(intent, 0) != null) {
+                grantLauncher.launch(intent)
+            } else {
+                // 部分 OEM ROM 没有该设置页：降级到 SAF
+                treeLauncher.launch(null)
+            }
+        } catch (e: Throwable) {
+            logCrash(context, "ensureStorage launch", e)
+            try { treeLauncher.launch(null) } catch (_: Throwable) {}
         }
     }
 
@@ -233,7 +256,7 @@ fun FileScreen(context: Context) {
     if (viewer.value != null) {
         FileViewer(context, rootId.value, viewer.value!!, onBack = { viewer.value = null; loadCurrent() })
     } else {
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Column(Modifier.fillMaxSize().padding(16.dp).windowInsetsPadding(WindowInsets.safeDrawing)) {
             // 根选择 + 授权
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 roots.value.forEach { r ->
@@ -512,4 +535,22 @@ private fun fmtSize(bytes: Long): String {
 private fun fmtTime(ms: Long): String {
     if (ms <= 0L) return "--"
     return try { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(ms)) } catch (_: Throwable) { "--" }
+}
+
+// ── 崩溃落盘（无需 adb，用户用文件管理器即可取到 Download/QuroAI_logs/） ──
+fun installCrashLogger(ctx: Context) {
+    val def = Thread.getDefaultUncaughtExceptionHandler()
+    Thread.setDefaultUncaughtExceptionHandler { t, e ->
+        try { logCrash(ctx, "uncaught@${t.name}", e) } catch (_: Throwable) {}
+        def?.uncaughtException(t, e)
+    }
+}
+
+fun logCrash(ctx: Context, where: String, e: Throwable) {
+    try {
+        val dir = File(ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "QuroAI_logs")
+        dir.mkdirs()
+        val f = File(dir, "fileaci_crash_${System.currentTimeMillis()}.txt")
+        f.appendText("=== FileAci crash @ ${Date()} ===\nwhere: $where\n${Log.getStackTraceString(e)}\n\n")
+    } catch (_: Throwable) {}
 }
