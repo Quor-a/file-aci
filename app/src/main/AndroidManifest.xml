@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      §16.3 权限处理（关键）：aci-core AAR 在其内嵌 Manifest 中定义了 ai.aci.permission.* 三个权限。
+      本 App 是「第三方受控端」，定义权归控制端 ZorvAI；若本 App 也定义同名权限、且签名与
+      ZorvAI 不同，安装时触发 INSTALL_FAILED_CONFLICTING_PERMISSION。因此用 tools:node="remove"
+      把 AAR 带入的定义剥除，本 App 只「引用」（uses-permission）+ 在 service 上用
+      android:permission 做第一层 Manifest 鉴权（引用的是 ZorvAI 已定义的权限）。
+    -->
+    <permission android:name="ai.aci.permission.CALL"           tools:node="remove" />
+    <permission android:name="ai.aci.permission.CALL_DANGEROUS" tools:node="remove" />
+    <permission android:name="ai.aci.permission.DISCOVER"      tools:node="remove" />
+
+    <!-- 文件受控端：通过 SAF 访问设备文件（用户授权），无需申请危险存储权限 -->
+
+    <!-- 仅引用控制端已定义的 ACI 权限（定义权归 ZorvAI） -->
+    <uses-permission android:name="ai.aci.permission.CALL" />
+    <uses-permission android:name="ai.aci.permission.DISCOVER" />
+    <uses-permission android:name="ai.aci.permission.CALL_DANGEROUS" />
+
+    <!--
+      §10 包可见性：受控端必须声明，否则 Android 11+ 控制端 queryIntentServices(ACTION_BIND)
+      返回空、绑定失败。同时声明 ZorvAI 包名，便于需要时互访。
+    -->
+    <queries>
+        <intent>
+            <action android:name="ai.aci.core.ACTION_BIND" />
+        </intent>
+        <intent>
+            <action android:name="ai.aci.core.ACTION_WAKE" />
+        </intent>
+        <package android:name="com.ai.assistance.quro" />
+    </queries>
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.FileAci">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 受控端 ACI Service：仅放行持有 ai.aci.permission.CALL 的调用方（ZorvAI 主程序） -->
+        <service
+            android:name=".FileAciService"
+            android:exported="true"
+            android:permission="ai.aci.permission.CALL">
+            <intent-filter>
+                <action android:name="ai.aci.core.ACTION_BIND" />
+            </intent-filter>
+        </service>
+
+        <!-- 唤醒 Receiver：ZorvAI 在停止态绑定前先发 ACTION_WAKE 广播拉起进程（§4.6） -->
+        <receiver
+            android:name=".FileAciWakeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="ai.aci.core.ACTION_WAKE" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+</manifest>
