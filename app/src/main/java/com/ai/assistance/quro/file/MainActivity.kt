@@ -251,7 +251,10 @@ fun FileScreen(context: Context) {
         }
     }
 
-    LaunchedEffect(Unit) { loadCurrent() }
+    LaunchedEffect(Unit) {
+        if (!FileManager.hasStoragePermission()) ensureStorage()
+        loadCurrent()
+    }
 
     if (viewer.value != null) {
         FileViewer(context, rootId.value, viewer.value!!, onBack = { viewer.value = null; loadCurrent() })
