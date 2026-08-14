@@ -13,6 +13,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.foundation.background
 import java.io.File
 import androidx.compose.foundation.clickable
@@ -251,9 +254,24 @@ fun FileScreen(context: Context) {
         }
     }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     LaunchedEffect(Unit) {
         if (!FileManager.hasStoragePermission()) ensureStorage()
         loadCurrent()
+    }
+
+    // 从系统设置页返回后自动刷新授权与文件列表
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                FileManager.refreshStorageRoot(context)
+                refreshRoots()
+                loadCurrent()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     if (viewer.value != null) {
@@ -350,7 +368,16 @@ fun FileScreen(context: Context) {
             // 列表
             if (entries.value.isEmpty()) {
                 Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Text("（空目录）", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (rootId.value == "storage" && curId.isEmpty() && !FileManager.hasStoragePermission()) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("需要「管理所有文件」权限", fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(8.dp))
+                            Text("请点击下方「授权设备存储」按钮，", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("在系统设置中开启后返回。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        Text("（空目录）", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             } else {
                 LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
