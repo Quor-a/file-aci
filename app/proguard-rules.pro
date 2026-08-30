@@ -44,6 +44,9 @@
     public <init>();
 }
 
+# org.json - R8 VerifyError on JSONException constructor chain
+-keep class org.json.** { *; }
+
 # Bouncy Castle
 -keep class org.bouncycastle.jcajce.provider.** { *; }
 -keep class org.bouncycastle.jce.provider.** { *; }
