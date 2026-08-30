@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  ~ Copyright (c) 2019 QuroAI <dev@quro.ai>
+  ~ All Rights Reserved.
+  -->
+
+<resources>
+
+    <style name="Platform.V23.Theme.FileAci.Material3" parent="Platform.V21.Theme.FileAci.Material3">
+        <item name="colorPrimaryDark">@color/system_window_scrim_material3</item>
+        <item name="android:windowLightStatusBar">?isLightTheme</item>
+    </style>
+    <style name="Platform.Theme.FileAci.Material3" parent="Platform.V23.Theme.FileAci.Material3" />
+</resources>

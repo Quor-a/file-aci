@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  ~ Copyright (c) 2024 QuroAI <dev@quro.ai>
+  ~ All Rights Reserved.
+  -->
+
+<resources
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@style/Theme.FileAci*" />

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  ~ Copyright (c) 2018 QuroAI <dev@quro.ai>
+  ~ All Rights Reserved.
+  -->
+
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <com.ai.assistance.quro.file.ftpserver.FtpServerStatePreference
+        android:key="@string/pref_key_ftp_server_state"
+        android:disableDependentsState="true"
+        android:title="@string/ftp_server_state_title" />
+
+    <com.ai.assistance.quro.file.ftpserver.FtpServerUrlPreference
+        android:title="@string/ftp_server_url_title" />
+
+    <com.ai.assistance.quro.file.ftpserver.FtpServerAddTilePreference
+        android:title="@string/ftp_server_add_tile_title"
+        app:isPreferenceVisible="@bool/pref_visible_ftp_server_add_tile" />
+
+    <PreferenceCategory
+        android:title="@string/ftp_server_configuration_title"
+        android:dependency="@string/pref_key_ftp_server_state">
+
+        <SwitchPreferenceCompat
+            android:key="@string/pref_key_ftp_server_anonymous_login"
+            android:title="@string/ftp_server_anonymous_login_title"
+            android:defaultValue="@bool/pref_default_value_ftp_server_anonymous_login"
+            android:disableDependentsState="true" />
+
+        <com.ai.assistance.quro.file.settings.DefaultIfEmptyEditTextPreference
+            android:key="@string/pref_key_ftp_server_username"
+            android:title="@string/ftp_server_username_title"
+            android:defaultValue="@string/pref_default_value_ftp_server_username"
+            android:dependency="@string/pref_key_ftp_server_anonymous_login"
+            app:useSimpleSummaryProvider="true" />
+
+        <com.ai.assistance.quro.file.settings.PasswordPreference
+            android:key="@string/pref_key_ftp_server_password"
+            android:title="@string/ftp_server_password_title"
+            android:dependency="@string/pref_key_ftp_server_anonymous_login"
+            android:inputType="textVisiblePassword"
+            app:useSimpleSummaryProvider="true" />
+
+        <com.ai.assistance.quro.file.settings.NonNegativeIntegerPreference
+            android:key="@string/pref_key_ftp_server_port"
+            android:title="@string/ftp_server_port_title"
+            android:defaultValue="@integer/pref_default_value_ftp_server_port"
+            app:useSimpleSummaryProvider="true" />
+
+        <com.ai.assistance.quro.file.ftpserver.FtpServerHomeDirectoryPreference
+            android:key="@string/pref_key_ftp_server_home_directory"
+            android:title="@string/ftp_server_home_directory_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SwitchPreferenceCompat
+            android:key="@string/pref_key_ftp_server_writable"
+            android:title="@string/ftp_server_writable_title"
+            android:defaultValue="@bool/pref_default_value_ftp_server_writable" />
+    </PreferenceCategory>
+</PreferenceScreen>

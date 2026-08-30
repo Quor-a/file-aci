@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+
+    <style name="Theme.FileAci.color_primary.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.color_primary.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.color_primary.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_red.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_red.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_red.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_pink.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_pink.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_pink.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_purple.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_purple.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_purple.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_deep_purple.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_deep_purple.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_deep_purple.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_indigo.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_indigo.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_indigo.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_blue.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_blue.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_blue.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_light_blue.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_light_blue.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_light_blue.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_cyan.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_cyan.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_cyan.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_teal.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_teal.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_teal.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_green.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_green.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_green.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_light_green.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_light_green.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_light_green.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_lime.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_lime.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_lime.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_yellow.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_yellow.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_yellow.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_amber.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_amber.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_amber.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_orange.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_orange.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_orange.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_deep_orange.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_deep_orange.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_deep_orange.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_brown.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_brown.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_brown.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_grey.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_grey.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_grey.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.material_blue_grey.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Translucent.material_blue_grey.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Immersive.material_blue_grey.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+</resources>

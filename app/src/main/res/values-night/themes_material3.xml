@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  ~ Copyright (c) 2022 QuroAI <dev@quro.ai>
+  ~ All Rights Reserved.
+  -->
+
+<resources>
+    <style name="Theme.FileAci.Material3.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Material3.Translucent.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+    <style name="Theme.FileAci.Material3.Immersive.Black">
+        <item name="colorPrimaryDark">@color/color_primary_dark_black</item>
+        <item name="colorSurface">@android:color/black</item>
+    </style>
+</resources>
